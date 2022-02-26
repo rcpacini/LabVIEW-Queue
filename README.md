@@ -3,47 +3,56 @@
 
 ## Getting Started
 
-Open and run the `/src/Demo.vi` to see an examples on how to use this Queue library in LabVIEW.
+Open and run the `/src/Example.vi` to see an example on how to use this Queue library in LabVIEW.
 
-![QueueDemo](/docs/imgs/QueueDemo.png)
+![Example](docs/api/queue/Example_Queue.lvlib_Example.vi.png)
 
 ## Overview
 
-This Queue library contains the malleable VI's to support multiple variations of Queues in LabVIEW. This library uses a string queue at it's core and supports the following:
+This Queue library is an extension to the built-in queue VIs to add malleable data type support and a better named queue caching mechanism to call/recall queues by name throughout an application (without create a new queue reference each time). 
 
 Features:
-- Queue Look Up Table (LUT)
+- Obtain Named Queue Map
   - Recall Queue references by name
-  - Returns the same reference (No need to Obtain + Release)
-  - Fetch queues in memory
-- Thread synchronization with `Wait to Obtain`
+  - Returns the same reference (No need to Obtain + Release multiple times)
+  - List all queues in memory
+- `Wait to Obtain` thread synchronization 
   - Waits for a queue to be created
-- Malleable VIs for `Enqueue`, `Dequeue`, `Status`, `Flush` and `Release`
-  - Handles one or more queue references or names
-  - Handles enum or string data types
-- `Enqueue.vim` supports commonly used behaviours:
-  - `Back` - Enqueue to back
-  - `Front` - Enqueue to front
-  - `Lossy` - Force enqueue to back (pop front)
-  - `Absent` - If not already enqueued, enqueue to back
+  - Avoids guessing when a queue is ready
+- Malleable VIs for `Enqueue`, `Dequeue` & `Preview`
+  - Supports one or more queues by reference or name
+  - Supports enum or string message data types
+- Enqueue **Method** support the following:
+  - `Back` - Enqueue to back (last out)
+  - `Front` - Enqueue to front (first out)
+  - `Lossy` - Force enqueue to back (last out + pop front if full)
+  - `Absent` - If not already enqueued (i.e. "Absent"), enqueue to back (last out)
 
 ## Functions
 
-The `Enqueue.vim`, `Flush.vim`, `Status.vim` and `Release.vim` all support a Queue reference or Queue Name as an input, making the Queue VI's more versatile for multi-threaded applications (passing reference wires everywhere not needed).
+This Queue library is a extended wrapper of the built-in queue functions. Under the hood, the elements are converted to a flattened string queue as `<Message>,<Data>` (separated by a comma).
 
-![QueueVIs](/docs/imgs/QueueVIs.png)
+*Note: The `<Message>` should not contain a comma.*
+
+![QueueVIs](docs/api/queue/Palette_API.png)
 
 ### Obtain + Wait to Obtain
 
-One common problem with multi-threaded applications is the need to pass data between threads. Queues are useful to solve this problem but due to the nature of LabVIEW's data flow paradigm, passing references arround the application can get ugly (with non-deterministic reference collection).
+One common problem with multi-threaded applications is determining when a thread is ready to accept messages. In many Queued Message Handlers, references are created at the top-level application; however in Run-Time Abstracted Applications (RTAA) some threads may not be loaded.
 
-Rather than using the built-in named queues, this library uses it's own functional global to avoid leftover queue refnums. If the `Obtain.vi` is called with a Queue Name, the queue reference is cached in a functional global look up table. The same Queue reference is returned each time the a named Obtain is called, thus eliminating the need to release each unique queue instance.
+For example, an RTAA that can launch one or more "targets" won't know at run-time how many named queues to create. In addition, the built-in Queue functions force you to either guess if the named queue is ready or always obtain the named queue (even if the thread was not created). This can cause undesired behaviour, in which a parent thread is filling a non-existant thread's queue.
 
-This Queue library also contains a `Wait to Obtain.vi` to wait for a Named Queue to be created. This escentially allows for threads to share references without passing references to each loop. Useful for synchronizing multi-threaded parent/child loop. The parent thread waits for the child thread to be created (i.e. Queue created) before enqueuing the messages.
+Rather than using the built-in named queues, this library uses it's own functional global to avoid leftover queue refnums. If the `Obtain.vi` is called with the same Queue Name multiple times, the first to call the obtain creates the queue and the same queue reference is returned for every subsequent obtain call (rather than creating a new reference pointer each time); thus eliminating the need to release each unique queue instance.
+
+The `Wait to Obtain.vi` solves another critical issue of multi-threaded application as to whether a thread is ready to receive messages. Unlike the built-in queue methods, this library waits for the owning thread to create the queue reference (rather than assuming the thread is ready, or force creating the queue even though the sub-thread might omitted) before sending messages.
+
+This ensures the owning thread is the only one who should create the queue; any listeners must wait for a Named Queue to be created, escentially allowing threads to share references without passing references to each loop (Useful for synchronizing Run-Time Abstracted Applications). 
+
+Refer to the `src/Example.vi` where the parent thread waits for the child thread to be created before enqueuing any messages.
 
 ![Wait To Obtain](docs/imgs/WaitToObtain.png)
 
-In this example, the `Main` thread waits for the `Sub1` thread to be created; avoiding the need to pass the `Sub1` reference to the main loop (better compartmentalization).
+In this example, the `Main` thread waits for the `Sub1` thread to be created; avoiding the need to pass the `Sub1` reference to the main loop (better compartmentalization/composition).
 
 ### Enqueue
 
