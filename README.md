@@ -1,6 +1,8 @@
 # LabVIEW Queue
  Queue library for LabVIEW
 
+[API Reference](docs/api/queue.md)
+
 ## Getting Started
 
 Open and run the `/src/Example.vi` to see an example on how to use this Queue library in LabVIEW.
